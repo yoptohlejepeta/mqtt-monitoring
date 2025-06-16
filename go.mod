@@ -1,4 +1,4 @@
-module monitoring/backend
+module monitoring/mqtt
 
 go 1.24.4
 

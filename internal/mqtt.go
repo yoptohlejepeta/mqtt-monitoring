@@ -10,7 +10,7 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
 
-	cfg "monitoring/backend/config"
+	cfg "monitoring/mqtt/config"
 )
 
 var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {

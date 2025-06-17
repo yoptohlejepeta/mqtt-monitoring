@@ -25,7 +25,7 @@ var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err
 	log.Printf("Connect lost: %v", err)
 }
 
-func ShowMqtt() {
+func RunMqtt() {
 	config, err := cfg.Get_config()
 	if err != nil {
 		panic(err)
@@ -62,5 +62,8 @@ func ShowMqtt() {
 func sub(client mqtt.Client, topic string) {
 	token := client.Subscribe(topic, 1, nil)
 	token.Wait()
-	fmt.Printf("Subscribed to topic: %s", topic)
+	if token.Error() != nil {
+		panic(token.Error())
+	}
+	fmt.Printf("Subscribed to topic: %s\n", topic)
 }

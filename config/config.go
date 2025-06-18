@@ -2,28 +2,82 @@ package config
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"time"
 
 	env "github.com/caarlos0/env/v11"
 	_ "github.com/joho/godotenv/autoload"
+	"gopkg.in/yaml.v3"
 )
 
-type Config struct {
+type TopicConfig struct {
+	Name     string        `yml:"name"`
+	Hours    []int         `yml:"hours"`
+	Interval time.Duration `yml:"interval"`
+}
+
+type MonitoringConfig struct {
+	Topics []TopicConfig `yml:"topics"`
+}
+
+type MqttConfig struct {
 	Host     string `env:"MQTT_HOST"`
 	Port     int    `env:"MQTT_PORT"`
 	User     string `env:"MQTT_USERNAME"`
 	Password string `env:"MQTT_PASSWORD"`
-	Topic    string `env:"MQTT_TOPIC"`
 }
 
-func Get_config() (Config, error) {
-	var cfg Config
+type Config struct {
+	Mqtt       MqttConfig
+	Monitoring MonitoringConfig
+}
 
-	err := env.Parse(&cfg)
+func Get_config() Config {
+	var mqtt_cfg MqttConfig
+	var monitoring_config MonitoringConfig
+
+	cfg := Config{
+		Mqtt:       *mqtt_cfg.ParseEnv(),
+		Monitoring: *monitoring_config.ParseYml(),
+	}
+	return cfg
+}
+
+func (c *MqttConfig) ParseEnv() *MqttConfig {
+	err := env.Parse(c)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println(cfg)
+	return c
+}
 
-	return cfg, nil
+func (c *MonitoringConfig) ParseYml() *MonitoringConfig {
+	cwd, err := os.Getwd()
+	if err != nil {
+		log.Fatal("Failed to get working directory.")
+	}
+
+	configPath := fmt.Sprint(cwd, "/config.yml")
+	fileContent, err := os.ReadFile(configPath)
+	if err != nil {
+		log.Fatal("Failed to read config file. Path: ", configPath)
+	}
+
+	if err := yaml.Unmarshal(fileContent, c); err != nil {
+		log.Fatal("Failed to parse config file. | ", err)
+	}
+
+	return c
+}
+
+func (c *MonitoringConfig) GetTopics() []string {
+	var topics []string
+
+	for _, topic := range c.Topics {
+		topics = append(topics, topic.Name)
+	}
+
+	return topics
 }

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
@@ -25,17 +26,15 @@ var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err
 	log.Printf("Connect lost: %v", err)
 }
 
-func RunMqtt() {
-	config, err := cfg.Get_config()
-	if err != nil {
-		panic(err)
-	}
-
+// Connects to MQTT and subscribes to topics.
+// Timeout 5 seconds.
+func RunMqtt(cfg cfg.Config) {
 	opts := mqtt.NewClientOptions()
-	opts.AddBroker(fmt.Sprintf("tcp://%s:%d", config.Host, config.Port))
+	opts.SetConnectTimeout(time.Second * 5)
+	opts.AddBroker(fmt.Sprintf("tcp://%s:%d", cfg.Mqtt.Host, cfg.Mqtt.Port))
 	opts.SetClientID(uuid.NewString())
-	opts.SetUsername(config.User)
-	opts.SetPassword(config.Password)
+	opts.SetUsername(cfg.Mqtt.User)
+	opts.SetPassword(cfg.Mqtt.Password)
 	opts.SetDefaultPublishHandler(messagePubHandler)
 	opts.OnConnect = connectHandler
 	opts.OnConnectionLost = connectLostHandler
@@ -45,7 +44,12 @@ func RunMqtt() {
 		panic(token.Error())
 	}
 
-	sub(client, config.Topic)
+	topics := cfg.Monitoring.GetTopics()
+	log.Println("Subscribing to topics: ", topics)
+
+	for _, topic := range topics {
+		sub(client, topic)
+	}
 
 	// https://gobyexample.com/signals
 	sigChan := make(chan os.Signal, 1)
@@ -63,7 +67,7 @@ func sub(client mqtt.Client, topic string) {
 	token := client.Subscribe(topic, 1, nil)
 	token.Wait()
 	if token.Error() != nil {
-		panic(token.Error())
+		log.Fatal(token.Error())
 	}
-	fmt.Printf("Subscribed to topic: %s\n", topic)
+	log.Printf("Subscribed to topic: %s\n", topic)
 }

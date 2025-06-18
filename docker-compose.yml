@@ -1,0 +1,7 @@
+services:
+  
+  monitoring:
+    build: .
+    env_file: .env
+    restart: on-failure:10
+    container_name: ${CONT_NAME}

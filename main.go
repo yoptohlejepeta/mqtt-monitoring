@@ -1,7 +1,13 @@
 package main
 
-import src "monitoring/mqtt/internal"
+// import src "monitoring/mqtt/internal"
+import (
+	cfg "monitoring/mqtt/config"
+	src "monitoring/mqtt/internal"
+)
 
 func main() {
-	src.RunMqtt()
+	config := cfg.Get_config()
+
+	src.RunMqtt(config)
 }

@@ -1,2 +1,5 @@
 .env
 config.yml
+
+# templ generated files
+*_templ.go

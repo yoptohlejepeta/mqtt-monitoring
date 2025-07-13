@@ -2,9 +2,10 @@ package internal
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -14,20 +15,14 @@ import (
 	cfg "monitoring/mqtt/config"
 )
 
-var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
-	log.Printf("Message: %s | Topic: %s\n", msg.Payload(), msg.Topic())
-}
-
 var connectHandler mqtt.OnConnectHandler = func(client mqtt.Client) {
-	log.Println("Connected")
+	slog.Info("Connected")
 }
 
 var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err error) {
-	log.Printf("Connect lost: %v", err)
+	slog.Info(fmt.Sprintf("Connections lost: %v", err))
 }
 
-// Connects to MQTT and subscribes to topics.
-// Timeout 5 seconds.
 func RunMqtt(cfg cfg.Config) {
 	opts := mqtt.NewClientOptions()
 	opts.SetConnectTimeout(time.Second * 5)
@@ -35,7 +30,6 @@ func RunMqtt(cfg cfg.Config) {
 	opts.SetClientID(uuid.NewString())
 	opts.SetUsername(cfg.Mqtt.User)
 	opts.SetPassword(cfg.Mqtt.Password)
-	opts.SetDefaultPublishHandler(messagePubHandler)
 	opts.OnConnect = connectHandler
 	opts.OnConnectionLost = connectLostHandler
 	client := mqtt.NewClient(opts)
@@ -44,13 +38,24 @@ func RunMqtt(cfg cfg.Config) {
 		panic(token.Error())
 	}
 
-	topics := cfg.Monitoring.GetTopics()
-	log.Println("Subscribing to topics: ", topics)
+	monitors := make([]*Monitor, 0, len(cfg.Monitoring.Topics))
+	tickers := make([]*time.Ticker, 0, len(cfg.Monitoring.Topics))
 
-	for _, topic := range topics {
-		sub(client, topic)
+	for _, topic := range cfg.Monitoring.Topics {
+		monitor := &Monitor{Count: 0, Topic: topic}
+		monitors = append(monitors, monitor)
+		sub(client, monitor)
+
+		ticker := time.NewTicker(topic.Interval)
+		defer ticker.Stop()
+		tickers = append(tickers, ticker)
+
+		go func(m *Monitor, t *time.Ticker) {
+			for range t.C {
+				m.CheckCount()
+			}
+		}(monitor, ticker)
 	}
-
 	// https://gobyexample.com/signals
 	sigChan := make(chan os.Signal, 1)
 
@@ -58,16 +63,37 @@ func RunMqtt(cfg cfg.Config) {
 
 	<-sigChan
 
-	log.Println("Received termination signal...")
+	slog.Info("Received termination signal...")
 	client.Disconnect(250)
-	log.Println("Disconnected")
+	slog.Info("Disconnected")
 }
 
-func sub(client mqtt.Client, topic string) {
-	token := client.Subscribe(topic, 1, nil)
+func sub(client mqtt.Client, m *Monitor) {
+	token := client.Subscribe(m.Topic.Name, 1, func(c mqtt.Client, msg mqtt.Message) {
+		m.mutex.Lock()
+		m.Count++
+		m.mutex.Unlock()
+		slog.Info(fmt.Sprintf("Message: %s | Topic: %s | Count: %d\n", msg.Payload(), msg.Topic(), m.Count))
+	})
 	token.Wait()
 	if token.Error() != nil {
-		log.Fatal(token.Error())
+		slog.Error(fmt.Sprintf("%v", token.Error()))
+		os.Exit(1)
 	}
-	log.Printf("Subscribed to topic: %s\n", topic)
+	slog.Info(fmt.Sprintf("Subscribed to topic: %s\n", m.Topic.Name))
+}
+
+type Monitor struct {
+	Count int
+	Topic cfg.TopicConfig
+	mutex sync.RWMutex
+}
+
+func (m *Monitor) CheckCount() {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	if m.Count < m.Topic.MinCount {
+		slog.Warn(fmt.Sprintf("Not enough messages | %v\n", m.Topic.Name))
+	}
+	m.Count = 0
 }

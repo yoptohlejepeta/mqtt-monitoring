@@ -1,0 +1,32 @@
+package main
+
+import cfg "monitoring/mqtt/config"
+
+templ Index(topics []cfg.TopicConfig) {
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Monitoring Dashboard</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.jade.min.css" />
+</head>
+
+<body>
+  <main class="container">
+    <h1>MQTT monitoring dashboard 💬</h1>
+    for _, topic := range topics {
+    <details>
+      <summary role="button">{ topic.Name }</summary>
+      <ul>
+        <li>min count: { topic.MinCount }</li>
+        <li>interval: { topic.Interval }</li>
+      </ul>
+    </details>
+    }
+  </main>
+</body>
+
+</html>
+}

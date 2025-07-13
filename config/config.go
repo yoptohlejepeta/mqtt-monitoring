@@ -12,9 +12,10 @@ import (
 )
 
 type TopicConfig struct {
-	Name     string        `yml:"name"`
-	Hours    []int         `yml:"hours"`
-	Interval time.Duration `yml:"interval"`
+	Name     string        `yaml:"name"`
+	Hours    []int         `yaml:"hours"`
+	Interval time.Duration `yaml:"interval"`
+	MinCount int           `yaml:"min_count"`
 }
 
 type MonitoringConfig struct {
@@ -70,14 +71,4 @@ func (c *MonitoringConfig) ParseYml() *MonitoringConfig {
 	}
 
 	return c
-}
-
-func (c *MonitoringConfig) GetTopics() []string {
-	var topics []string
-
-	for _, topic := range c.Topics {
-		topics = append(topics, topic.Name)
-	}
-
-	return topics
 }

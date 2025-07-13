@@ -5,3 +5,5 @@ services:
     env_file: .env
     restart: on-failure:10
     container_name: ${CONT_NAME}
+    ports:
+      - 8000:8000

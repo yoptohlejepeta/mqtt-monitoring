@@ -27,7 +27,7 @@ COPY --from=generate-stage /app /app
 COPY --from=frontend-build-stage /app/frontend/static /app/frontend/static
 
 WORKDIR /app
-RUN go build -o mqtt-monitoring -buildvcs
+RUN go build -o mqtt-monitoring -buildvcs=false
 
 EXPOSE 8000
 

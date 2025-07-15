@@ -3,7 +3,9 @@ package config
 import (
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
+	"sync"
 	"time"
 
 	env "github.com/caarlos0/env/v11"
@@ -12,10 +14,12 @@ import (
 )
 
 type TopicConfig struct {
-	Name     string        `yaml:"name"`
-	Hours    []int         `yaml:"hours"`
-	Interval time.Duration `yaml:"interval"`
-	MinCount int           `yaml:"min_count"`
+	Name      string        `yaml:"name"`
+	Hours     []int         `yaml:"hours"`
+	Interval  time.Duration `yaml:"interval"`
+	MinCount  int           `yaml:"min_count"`
+	Count     int
+	Mutex     sync.RWMutex
 }
 
 type MonitoringConfig struct {
@@ -71,4 +75,13 @@ func (c *MonitoringConfig) ParseYml() *MonitoringConfig {
 	}
 
 	return c
+}
+
+func (t *TopicConfig) CheckCount() {
+	t.Mutex.Lock()
+	defer t.Mutex.Unlock()
+	if t.Count < t.MinCount {
+		slog.Warn(fmt.Sprintf("Not enough messages | %v\n", t.Name))
+	}
+	t.Count = 0
 }

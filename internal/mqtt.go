@@ -12,6 +12,7 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
 
+	"monitoring/mqtt/config"
 	cfg "monitoring/mqtt/config"
 )
 
@@ -38,29 +39,27 @@ func RunMqtt(cfg cfg.Config) {
 		panic(token.Error())
 	}
 
-	monitors := make([]*Monitor, 0, len(cfg.Monitoring.Topics))
 	tickers := make([]*time.Ticker, 0, len(cfg.Monitoring.Topics))
 
-	for _, topic := range cfg.Monitoring.Topics {
-		monitor := &Monitor{Count: 0, Topic: topic}
-		monitors = append(monitors, monitor)
-		sub(client, monitor)
+	for i, _ := range cfg.Monitoring.Topics {
+		topic := &cfg.Monitoring.Topics[i]
+		topic.Count = 0
+		sub(client, topic)
 
 		ticker := time.NewTicker(topic.Interval)
 		defer ticker.Stop()
 		tickers = append(tickers, ticker)
 
-		go func(m *Monitor, t *time.Ticker) {
-			for range t.C {
-				m.CheckCount()
+		go func(t *config.TopicConfig, time *time.Ticker) {
+			for range time.C {
+				t.CheckCount()
 			}
-		}(monitor, ticker)
+		}(topic, ticker)
 	}
+
 	// https://gobyexample.com/signals
 	sigChan := make(chan os.Signal, 1)
-
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
 	<-sigChan
 
 	slog.Info("Received termination signal...")
@@ -68,32 +67,23 @@ func RunMqtt(cfg cfg.Config) {
 	slog.Info("Disconnected")
 }
 
-func sub(client mqtt.Client, m *Monitor) {
-	token := client.Subscribe(m.Topic.Name, 1, func(c mqtt.Client, msg mqtt.Message) {
-		m.mutex.Lock()
-		m.Count++
-		m.mutex.Unlock()
-		slog.Info(fmt.Sprintf("Message: %s | Topic: %s | Count: %d\n", msg.Payload(), msg.Topic(), m.Count))
+func sub(client mqtt.Client, t *cfg.TopicConfig) {
+	token := client.Subscribe(t.Name, 1, func(c mqtt.Client, msg mqtt.Message) {
+		t.Mutex.Lock()
+		t.Count++
+		t.Mutex.Unlock()
+		slog.Info(fmt.Sprintf("Message: %s | Topic: %s | Count: %d\n", msg.Payload(), msg.Topic(), t.Count))
 	})
 	token.Wait()
 	if token.Error() != nil {
 		slog.Error(fmt.Sprintf("%v", token.Error()))
 		os.Exit(1)
 	}
-	slog.Info(fmt.Sprintf("Subscribed to topic: %s\n", m.Topic.Name))
+	slog.Info(fmt.Sprintf("Subscribed to topic: %s\n", t.Name))
 }
 
 type Monitor struct {
 	Count int
 	Topic cfg.TopicConfig
 	mutex sync.RWMutex
-}
-
-func (m *Monitor) CheckCount() {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	if m.Count < m.Topic.MinCount {
-		slog.Warn(fmt.Sprintf("Not enough messages | %v\n", m.Topic.Name))
-	}
-	m.Count = 0
 }

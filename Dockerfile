@@ -13,7 +13,8 @@ COPY frontend/package.json frontend/package-lock.json ./
 RUN npm install
 
 RUN mkdir -p /app/frontend/static/css \
-  && cp node_modules/@picocss/pico/css/pico.jade.min.css /app/frontend/static/css/
+  && cp node_modules/@picocss/pico/css/pico.classless.jade.min.css /app/frontend/static/css/ \
+  && cp node_modules/@picocss/pico/css/pico.colors.min.css /app/frontend/static/css/
 
 
 FROM ghcr.io/a-h/templ:latest AS generate-stage

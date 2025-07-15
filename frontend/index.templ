@@ -8,20 +8,27 @@ templ Index(topics []cfg.TopicConfig) {
 		<head>
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<meta http-equiv="refresh" content="3"/>
 			<title>MQTT monitoring</title>
-			<link rel="stylesheet" href="static/css/pico.jade.min.css"/>
+			<link rel="stylesheet" href="static/css/pico.classless.jade.min.css"/>
+			<link rel="stylesheet" href="static/css/pico.colors.min.css"/>
 		</head>
 		<body>
 			<main class="container">
 				<h1>MQTT monitoring 💬</h1>
 				for _, topic := range topics {
-					<details>
-						<summary role="button">{ topic.Name }</summary>
+					<article>
+						<header>{ topic.Name }</header>
 						<ul>
 							<li>min count: { topic.MinCount }</li>
 							<li>interval: { topic.Interval }</li>
 						</ul>
-					</details>
+						if topic.MinCount > topic.Count {
+							<button class="pico-background-red-500">{ topic.Count }</button>
+						} else {
+							<button class="pico-background-green-250">{ topic.Count }</button>
+						}
+					</article>
 				}
 			</main>
 		</body>
